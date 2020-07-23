@@ -112,20 +112,56 @@ class Graph:
             # 搜索每个邻居能到达的可能链路集合
             for node_A_neighbor in node_A_neighbors:
                 # 将端点的第一个邻居设置为已访问，加入到栈
+
+                # 中间节点不能是G节点
+                if node_A_neighbor.type == 'G':
+                    continue
                 node_A_neighbor.isVisited = True
                 stack_list.append(node_A_neighbor)
                 print("dfs continue go:" + str(node_A_neighbor.NodeID))
                 # DFS递归深搜
-                self.dfs(stack_list, couple_link_list, couple.node_B, node_A_neighbor.A)
+                self.dfs(stack_list, couple_link_list, couple.node_B, node_A_neighbor.A, node_A_neighbor.type)
             # 恢复未访问状态
             couple.node_A.isVisited = False
             # 转为主链路结构
             for couple_link in couple_link_list:
                 # 得到一个链路
+                # 链路至少有三个点，即两个端点，一个中间节点
+                if len(couple_link) == 0:
+                    continue
                 topology_link = TopologyLink(couple.node_A, couple_link, couple.node_B, topology_link_id)
-                topology_link_dict[topology_link_id] = topology_link
+                # 加入链路集合或者说加入主链路集合的条件是一定是不附属于一个链路
+                if self.check_topology_link(topology_link_dict, topology_link):
+                    topology_link_dict[topology_link_id] = topology_link
                 topology_link_id += 1
         return topology_link_dict
+
+    # 对新的链路（只包含了主链路)进行主链路的hash值比对，保证这个链路不附属于某个链路
+    # ！！！！！！！未考虑两个主链路如果有中间节点部分重叠部分的情况,只考虑完全重叠，即一个链路包含另一个链路
+    def check_topology_link(self, topology_link_dict, topology_link):
+        # 新的主链路hash值
+        hashcode_1_from_node = topology_link.main_link.hashcode_1
+        hashcode_2_from_node = topology_link.main_link.hashcode_2
+        result = True
+        keys = list(topology_link_dict.keys())
+        for key in keys:
+            # 结果集合中主链路的hash值
+            hashcode_1_from_dict = topology_link_dict[key].main_link.hashcode_1
+            hashcode_2_from_dict = topology_link_dict[key].main_link.hashcode_2
+
+            # 这个新链路附属于某个链路，不加入结果集合
+            if hashcode_1_from_node in hashcode_1_from_dict or hashcode_1_from_node in hashcode_2_from_dict:
+                return False
+
+            # 如果这个新链路包含某个结果集合的链路，则需要移除被包含链路，然后继续搜索，看有没有链路附属于这个新链路，然后继续删除
+            if hashcode_1_from_dict in hashcode_1_from_node or hashcode_1_from_dict in hashcode_2_from_node:
+                topology_link_dict.pop(key)
+
+        # 如果既不附属于某个结果集合中的主链路，也没有其他的结果集合中的点附属于这个主链路，则加入这个链路
+        return result
+
+
+
 
 
 
@@ -134,7 +170,7 @@ class Graph:
 
 
     # DFS深度搜索所有可能的链路,value_A表示后面所有的A值必须与这个A值一致
-    def dfs(self, stack_list, couple_link_list, end_node, value_A):
+    def dfs(self, stack_list, couple_link_list, end_node, value_A, type):
         # 判断是否是终点
         if stack_list[-1].NodeID == end_node.NodeID:
             # 将终点弹出,设置为未访问节点，后复制列表到结果中
@@ -149,12 +185,12 @@ class Graph:
             for node_neighbor in node_neighbors:
                 print(str(node_neighbor.NodeID)+":"+node_neighbor.type+":"+str(node_neighbor.A))
                 # 要保证下一个点未访问过，且A值要与所有中间点的值一致,或者找到了
-                if (not node_neighbor.isVisited and node_neighbor.A == value_A) or node_neighbor.NodeID == end_node.NodeID:
+                if (not node_neighbor.isVisited and node_neighbor.A == value_A  and node_neighbor.type == type) or node_neighbor.NodeID == end_node.NodeID:
                     node_neighbor.isVisited = True
                     stack_list.append(node_neighbor)
                     print("dfs continue go:" + str(node_neighbor.NodeID))
                     # DFS递归深搜
-                    self.dfs(stack_list, couple_link_list, end_node, value_A)
+                    self.dfs(stack_list, couple_link_list, end_node, value_A, type)
 
             # 没有找到对应邻居或者遍历结束,将此点退栈,同时恢复其未访问状态
             node = stack_list.pop()

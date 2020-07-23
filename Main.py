@@ -8,7 +8,7 @@ from TopologyLink import TopologyLink
 
 def main():
     # 拓扑连接的文件路径
-    pathOfCollection = '..\\data\\test.csv'
+    pathOfCollection = '.\\data\\test.csv'
 
     # 第一步，读取赛题数据，创建网络拓扑
 
@@ -17,7 +17,7 @@ def main():
     # 第三步，优化网络结构
 
 def test():
-    pathOfCollection = '..\\data\\test.csv'
+    pathOfCollection = '.\\data\\test.csv'
 
     # 解析文件
     # 读取csv文件,转为二维数组
@@ -60,7 +60,12 @@ def test():
     topology_link_list = list(topology_link_dict.values())
 
     # 展示一个链路
-    topology_link_list[0].show_main_link()
+    # topology_link_list[0].show_main_link()
+
+    # 打印链路
+    f = open(".\\data\\topology_link.txt", 'w+')
+    for topology_link in topology_link_list:
+        f.write(topology_link.main_link.hashcode_1+"\n")
 
 
 

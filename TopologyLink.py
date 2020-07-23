@@ -66,11 +66,11 @@ class MainLink:
         # 正序遍历列表为一个hash值
 
         for node in node_list:
-            hashcode_1 = hashcode_1 + str(node.NodeID)
+            hashcode_1 = hashcode_1 + "-"+str(node.NodeID)
 
         # 逆序遍历列表为一个hash值
         for node in reversed(node_list):
-            hashcode_2 = hashcode_2 + str(node.NodeID)
+            hashcode_2 = hashcode_2 + "-"+str(node.NodeID)
 
         return hashcode_1,hashcode_2
 
