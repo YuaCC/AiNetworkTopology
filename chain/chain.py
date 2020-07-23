@@ -87,6 +87,8 @@ def cal_G_H_G_chain(data:CityData,visited:set)->list:
         for j,end in enumerate(g_ids):
             if j>=i:
                 break
+            if data.get_node(beg).A != data.get_node(end).A:
+                continue
             while True:
                 ids = h_ids - visited
                 res=fi_longest_path(beg,end,ids,data)
@@ -111,6 +113,8 @@ def cal_GH_J_GH_chain(data:CityData,visited:set):
         for j,end in enumerate(gh_ids):
             if j>=i:
                 break
+            if data.get_node(beg).A != data.get_node(end).A:
+                continue
             beg_connected_ids = data.get_connected_nodes(beg)
             end_connected_ids = data.get_connected_nodes(end)
             for b in beg_connected_ids:
@@ -136,8 +140,6 @@ def cal_GH_J_GH_chain(data:CityData,visited:set):
     return result
 
 def cal_J_J_GHJ_chain(data:CityData,visited:set,main_chain_nodes:set):
-    g_ids = set(data.get_ids_by_type('G'))
-    h_ids = set(data.get_ids_by_type('H'))
     j_ids = set(data.get_ids_by_type('J'))
     beg_ids = j_ids&main_chain_nodes
     end_ids = main_chain_nodes
@@ -147,38 +149,30 @@ def cal_J_J_GHJ_chain(data:CityData,visited:set,main_chain_nodes:set):
         for j, end in enumerate(end_ids):
             if beg == end:
                 continue
-            beg_connected_ids = data.get_connected_nodes(beg)
-            end_connected_ids = data.get_connected_nodes(end)
-            for b in beg_connected_ids:
-                if b not in unvisited_j_ids:
-                    continue
-                for e in end_connected_ids:
-                    if e not in unvisited_j_ids:
-                        continue
-                    nodeb = data.get_node(b)
-                    nodee = data.get_node(e)
-                    if nodeb.A != nodee.A:
-                        continue
-                    ids = set([i for i in unvisited_j_ids if data.get_node(i).A == nodeb.A])
-                    path = fi_shortest_path(b, e, ids, data)
-                    if path is None or len(path) <= 0:
-                        continue
-                    for i in path: visited.add(i)
-
-                    path.insert(0, beg)
-                    path.append(end)
-                    result.append(path)
-                    unvisited_j_ids = unvisited_j_ids - set(path)
+            node_beg = data.get_node(beg)
+            node_end = data.get_node(end)
+            while True:
+                ids = set( [i for i in unvisited_j_ids if data.get_node(i).A <= node_beg.A and data.get_node(i).A <= node_end.A])
+                path = fi_shortest_path(beg, end, ids, data)
+                if path is None or len(path) <=2:
+                    break
+                for i in path: visited.add(i)
+                result.append(path)
+                unvisited_j_ids = unvisited_j_ids - set(path)
     return result
 
 def cal_hang_node(data:CityData,visited:set ):
     ids =set(data.get_ids())
     no_visited = ids - visited
-    result= {}
+    result= []
     for i in no_visited:
+        node = data.get_node(i)
         connected_ids = data.get_connected_nodes(i)
-        result[i] = connected_ids[0]
-        visited.add(i)
+        for c in connected_ids:
+            nodec = data.get_node(c)
+            if nodec.A>=node.A:
+                result.append([i,c])
+                visited.add(i)
     return result
 '''
 :parameter
@@ -201,7 +195,73 @@ def cal_chains(attr_file:str,topo_file:str):
     associate_chains = J_J_GHJ_chain
 
     hang_points = cal_hang_node(data,visited)
+    print('check res is no problem: ',check_res(data,main_chains,associate_chains,hang_points))
     return main_chains,associate_chains,hang_points
+
+
+def check_res(data:CityData,main_chains:list,associate_chains:list,hang_points:list):
+    ids = data.get_ids()
+    res_ids = []
+    for r in main_chains:
+        res_ids.extend(r)
+    for r in associate_chains:
+        res_ids.extend(r)
+    for r in hang_points:
+        res_ids.extend(r)
+    res_ids = set(res_ids)
+    if len(ids)!=len(res_ids):
+        print('len(ids)!=len(res_ids)' )
+        return False
+    for c in main_chains:
+        nodes = [data.get_node(i) for i in c]
+        all_H = True
+        all_J = True
+        mid_same_A = True
+        ends_same_A = nodes[0].A == nodes[-1].A
+        for node in nodes[1:-1]:
+            if node.type!='H': all_H=False
+            if node.type!='J': all_J=False
+            if node.A!=nodes[1].A: mid_same_A=False
+        GG = nodes[0].type=='G' and nodes[-1].type=='G'
+        GH  = (nodes[0].type=='G' and nodes[-1].type=='H') or (nodes[0].type=='H' and nodes[-1].type=='G')
+        HH = nodes[0].type=='H' and nodes[-1].type=='H'
+        if GG and all_H and ends_same_A :
+            continue
+        if (GG or GH or HH) and all_J and ends_same_A and mid_same_A:
+            continue
+        print('main_chains = {}'.format(c))
+        print('GG {} GH {} HH {} all_H {} all_J {} mid_same_A {} ends_same_A {}'.format(GG,GH,HH,all_H,all_J,mid_same_A,ends_same_A))
+        return False
+
+    for c in associate_chains:
+        nodes = [data.get_node(i) for i in c]
+        all_H = True
+        all_J = True
+        mid_small_A = True
+        ends_same_A = nodes[0].A == nodes[-1].A
+        for node in nodes[1:-1]:
+            if node.type!='H': all_H=False
+            if node.type!='J': all_J=False
+            if node.A>nodes[0].A: mid_small_A=False
+        GJ = (nodes[0].type=='G' and nodes[-1].type=='J') or (nodes[0].type=='J' and nodes[-1].type=='G')
+        HJ  = (nodes[0].type=='J' and nodes[-1].type=='H') or (nodes[0].type=='H' and nodes[-1].type=='J')
+        JJ = nodes[0].type=='J' and nodes[-1].type=='J'
+        if (GJ or HJ or JJ) and all_J and mid_small_A:
+            continue
+        print('associate_chains = {}'.format(c))
+        print('GJ {} HJ {} JJ {} all_H {} all_J {} mid_small_A {} ends_same_A {}'.format(GJ,HJ,JJ,all_H,all_J,mid_small_A,ends_same_A))
+        return False
+
+    for a,b in hang_points:
+        nodea = data.get_node(a)
+        nodeb = data.get_node(b)
+        if nodea.A> nodeb.A:
+            print('hang_points = {} {}'.format(a,b))
+            return False
+
+    return True
+
+
 
 if __name__ == '__main__':
     main_chains,associate_chains,hang_points=cal_chains('chain/attr_test.csv','chain/topo_test.csv')
